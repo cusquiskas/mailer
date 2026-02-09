@@ -86,14 +86,10 @@
 
     class Database {
         private $pdo;
-        private $config = [
-            'host' => getenv('DB_HOST'),
-            'user' => getenv('DB_USER'),
-            'pass' => getenv('DB_PASS'),
-            'name' => getenv('DB_APLI')
-        ];
+        private $config;
         
         public function __construct() {
+            $this->config = [ 'host' => getenv('DB_HOST'), 'user' => getenv('DB_USER'), 'pass' => getenv('DB_PASS'), 'name' => getenv('DB_APLI') ];
             $dsn = "mysql:host={$this->config['host']};dbname={$this->config['name']};charset=utf8mb4";
 
             $this->pdo = new PDO($dsn, $this->config['user'], $this->config['pass'], [
