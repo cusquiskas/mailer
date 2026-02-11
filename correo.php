@@ -107,7 +107,7 @@
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($data);
         }
-    }
+    } 
 
 
 
