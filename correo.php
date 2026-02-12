@@ -5,7 +5,19 @@
     use PHPMailer\PHPMailer\SMTP;
     use PHPMailer\PHPMailer\Exception;
 
-        
+    register_shutdown_function(function () {
+        $error = error_get_last();
+        if ($error !== null) {
+            http_response_code(500);
+            echo json_encode([
+                'status' => 'fatal',
+                'msg'    => $error['message'],
+                'file'   => basename($error['file']),
+                'line'   => $error['line']
+            ]);
+        }
+    });
+    
     Class Correo
     {
         
@@ -114,23 +126,24 @@
     $db     = new Database();
     $correo = new Correo  ();
 
-    $input  = json_decode(file_get_contents('php://input'), true);
-
-    $to     = $input['to'] ?? null;
-    $cc     = $input['cc'] ?? null;
-    $bcc    = $input['bcc'] ?? null;
-    $asunto = $input['subject'] ?? '';
-    $cuerpo = $input['body'] ?? '';
-    $app    = $input['app'] ?? 'no informada';
-
     try {
+        $input_raw = file_get_contents('php://input'); 
+        $input = json_decode($input_raw, true);
+
+        $to     = $input['to']      ?? null;
+        $cc     = $input['cc']      ?? null;
+        $bcc    = $input['bcc']     ?? null;
+        $asunto = $input['subject'] ?? '';
+        $cuerpo = $input['body']    ?? '';
+        $app    = $input['app']     ?? 'no informada';
+
+        if (!$to) { throw new Exception("Campo 'to' obligatorio y no recibido"); }
+    
         $correo->destinatario($to);
         if ($cc)  $correo->destinatarioCC($cc);
         if ($bcc) $correo->destinatarioCO($bcc);
         
-        if (!$correo->mandaMail($asunto, $cuerpo)) {
-            throw new Exception($correo->error);
-        }
+        if (!$correo->mandaMail($asunto, $cuerpo)) { throw new Exception($correo->error); }
 
         $db->insertLog([
             'destinatario' => $to,
@@ -145,23 +158,28 @@
             'aplicacion' => $app
         ]);
 
+        http_response_code(200);
         echo json_encode(['status' => 'ok']);
 
     } catch (Exception $e) {
 
-        $db->insertLog([
-            'destinatario' => $to,
-            'copia' => $cc,
-            'copia_oculta' => $bcc,
-            'asunto' => $asunto,
-            'cuerpo' => $cuerpo,
-            'adjuntos' => null,
-            'estado' => 'ERROR',
-            'mensaje_error' => $e->getMessage(),
-            'ip_origen' => $_SERVER['REMOTE_ADDR'] ?? null,
-            'aplicacion' => $app
-        ]);
-
+        try {    
+            $db->insertLog([
+                    'destinatario' => $to,
+                    'copia' => $cc,
+                    'copia_oculta' => $bcc,
+                    'asunto' => $asunto,
+                    'cuerpo' => $cuerpo,
+                    'adjuntos' => null,
+                    'estado' => 'ERROR',
+                    'mensaje_error' => $e->getMessage(),
+                    'ip_origen' => $_SERVER['REMOTE_ADDR'] ?? null,
+                    'aplicacion' => $app
+                ]);
+        } catch (Exception $ignored) { 
+            // Si falla el log, no rompemos la respuesta 
+        }
+        http_response_code(400);
         echo json_encode(['status' => 'error', 'msg' => $e->getMessage()]);
     }
 
