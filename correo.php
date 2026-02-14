@@ -183,6 +183,5 @@
         echo json_encode(['status' => 'error', 'msg' => $e->getMessage()]);
     }
 
-
-    
+        
 ?>
